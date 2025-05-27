@@ -25,6 +25,8 @@ REQUIRED_ENV = [
     "EMAIL_SENDER",
     "EMAIL_RECEIVER",
     "EMAIL_APP_PASSWORD",
+    # JIRA_DISPLAY_NAME is optional if JIRA_JQL is used
+    # NOTION_TEXT_BLOCK_ID is optional (gracefully skipped if missing)
 ]
 
 def validate_env():
@@ -33,12 +35,11 @@ def validate_env():
         raise RuntimeError(f"Missing required environment variables: {missing}")
 
 def get_email_hours():
-    return [9, 17]  # 9am and 5pm ET by default
+    return [9, 17]  # 9am and 5pm ET
 
 def is_email_hour():
-    email_hours = get_email_hours()
     est = pytz.timezone("America/New_York")
-    return datetime.now(est).hour in email_hours
+    return datetime.now(est).hour in get_email_hours()
 
 def main(dry_run=False):
     try:

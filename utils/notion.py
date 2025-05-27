@@ -1,9 +1,12 @@
 import os
 import requests
 import logging
+from datetime import datetime
+import pytz
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+NOTION_TEXT_BLOCK_ID = os.getenv("NOTION_TEXT_BLOCK_ID")
 NOTION_BASE_URL = "https://api.notion.com/v1"
 NOTION_HEADERS = {
     "Authorization": f"Bearer {NOTION_API_KEY}",
@@ -62,5 +65,27 @@ def add_or_update_ticket(issue, existing_ids, dry_run=False):
     return key, changes
 
 def update_last_synced():
-    # Optional: you can implement this to update a Notion text block with a timestamp.
-    logging.info("✅ Updated last synced timestamp.")
+    if not NOTION_TEXT_BLOCK_ID:
+        logging.info("ℹ️ No NOTION_TEXT_BLOCK_ID set — skipping timestamp update.")
+        return
+
+    now = datetime.now(pytz.timezone("America/New_York"))
+    timestamp = now.strftime("%A, %B %d at %I:%M %p ET")
+    text = f"✅ Last synced: {timestamp}"
+
+    payload = {
+        "paragraph": {
+            "rich_text": [{
+                "type": "text",
+                "text": {"content": text}
+            }]
+        }
+    }
+
+    url = f"{NOTION_BASE_URL}/blocks/{NOTION_TEXT_BLOCK_ID}"
+    res = requests.patch(url, headers=NOTION_HEADERS, json=payload)
+
+    if res.status_code == 200:
+        logging.info(f"🕒 Updated Notion timestamp block: {text}")
+    else:
+        logging.warning(f"❌ Failed to update Notion timestamp block: {res.status_code} — {res.text}")
