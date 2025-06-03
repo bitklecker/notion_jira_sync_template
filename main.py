@@ -58,7 +58,7 @@ def main(dry_run=False):
             ticket_id, changes = add_or_update_ticket(issue, existing_ids, dry_run=dry_run)
             if changes.get("created"):
                 created[ticket_id] = changes
-            elif any(k not in ("created", "link") for k in changes):
+            elif changes.get("updated"):
                 updated[ticket_id] = changes
 
         logging.info(f"📦 Created={len(created)}, Updated={len(updated)}")
