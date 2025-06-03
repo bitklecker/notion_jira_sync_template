@@ -21,6 +21,7 @@ def fetch_filtered_jira_issues():
             f'cf[13902] = "{display_name}" OR '  # Brand Lead
             f'cf[13400] = "{display_name}" OR '  # Project Lead
             f'cf[15530] = "{display_name}" OR '  # Print Producer
+            f'assignee = "{display_name}" OR '
             f'cf[14200] = "{display_name}") '    # Social Media
             'ORDER BY created DESC'
         )
