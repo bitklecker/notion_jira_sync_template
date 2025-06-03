@@ -38,12 +38,12 @@ FIELD_MAP = {
     "Social media due date": ("customfield_14201", "date"),
     "Print producer": ("customfield_15530", "select"),
     "Social media": ("customfield_14200", "select"),
-    "Assignee": ("assignee", "select"),
+    "Assignee": ("assignee", "select"),  # ✅ ADDED
 }
 
 def get_existing_ticket_ids():
     url = f"{NOTION_BASE_URL}/databases/{NOTION_DATABASE_ID}/query"
-    ticket_ids = set()
+    ticket_id_to_page_id = {}
     has_more = True
     payload = {"page_size": 100}
     while has_more:
@@ -55,11 +55,11 @@ def get_existing_ticket_ids():
             ticket_field = props.get("Ticket ID", {}).get("rich_text", [])
             if ticket_field:
                 text = ticket_field[0]["text"]["content"]
-                ticket_ids.add(text)
+                ticket_id_to_page_id[text] = result["id"]
         has_more = data.get("has_more", False)
         if has_more:
             payload["start_cursor"] = data["next_cursor"]
-    return ticket_ids
+    return ticket_id_to_page_id
 
 def format_property(value, field_type):
     if not value:
@@ -113,8 +113,16 @@ def add_or_update_ticket(issue, existing_ids, dry_run=False):
         logging.info(f"✅ Created ticket {key} in Notion")
         changes["created"] = True
     else:
-        logging.info(f"➖ Ticket {key} already exists. Skipping create.")
-        # You can add update logic here later if needed (based on comparison)
+        page_id = existing_ids[key]
+        if dry_run:
+            logging.info(f"[DRY RUN] Would update ticket: {key}")
+            return key, {"updated": True}
+
+        payload = {"properties": props}
+        res = requests.patch(f"{NOTION_BASE_URL}/pages/{page_id}", headers=NOTION_HEADERS, json=payload)
+        res.raise_for_status()
+        logging.info(f"🔄 Updated ticket {key} in Notion")
+        changes["updated"] = True
 
     return key, changes
 
