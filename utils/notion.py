@@ -98,7 +98,7 @@ def add_or_update_ticket(issue, existing_ids, dry_run=False):
     changes = {}
 
     if key not in existing_ids:
-        props["Status"] = {"status": {"name": "Not Started"}}  # Default for new tickets
+        props["Status"] = {"status": {"name": "Not started"}}  # Default for new tickets
 
         if dry_run:
             logging.info(f"[DRY RUN] Would create ticket: {key}")
