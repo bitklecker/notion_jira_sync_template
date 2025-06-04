@@ -1,3 +1,4 @@
+# main.py
 import os
 import json
 import argparse
@@ -7,10 +8,14 @@ from datetime import datetime
 import pytz
 
 from utils.jira import fetch_filtered_jira_issues
-from utils.notion import get_existing_ticket_ids, add_or_update_ticket, update_last_synced
+from utils.notion import (
+    get_existing_ticket_ids,
+    add_or_update_ticket,
+    delete_orphaned_tickets,
+    update_last_synced
+)
 from utils.emailer import send_summary_email, send_error_email
 
-# Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s — %(levelname)s — %(message)s",
@@ -25,8 +30,6 @@ REQUIRED_ENV = [
     "EMAIL_SENDER",
     "EMAIL_RECEIVER",
     "EMAIL_APP_PASSWORD",
-    # JIRA_DISPLAY_NAME is optional if JIRA_JQL is used
-    # NOTION_TEXT_BLOCK_ID is optional (gracefully skipped if missing)
 ]
 
 def validate_env():
@@ -35,7 +38,7 @@ def validate_env():
         raise RuntimeError(f"Missing required environment variables: {missing}")
 
 def get_email_hours():
-    return [9, 17]  # 9am and 5pm ET
+    return [9, 17]
 
 def is_email_hour():
     est = pytz.timezone("America/New_York")
@@ -49,17 +52,23 @@ def main(dry_run=False):
         issues = fetch_filtered_jira_issues()
         logging.info(f"🔍 Jira issues found: {len(issues)}")
 
-        existing_ids = get_existing_ticket_ids()
+        existing_ids, page_map = get_existing_ticket_ids()
         logging.info(f"📚 Existing Notion tickets: {len(existing_ids)}")
 
         created, updated = {}, {}
 
+        seen_ticket_ids = set()
+
         for issue in issues:
             ticket_id, changes = add_or_update_ticket(issue, existing_ids, dry_run=dry_run)
+            seen_ticket_ids.add(ticket_id)
             if changes.get("created"):
                 created[ticket_id] = changes
             elif changes.get("updated"):
                 updated[ticket_id] = changes
+
+        # Delete tickets no longer matching the JIRA_DISPLAY_NAME
+        delete_orphaned_tickets(page_map, seen_ticket_ids, dry_run=dry_run)
 
         logging.info(f"📦 Created={len(created)}, Updated={len(updated)}")
 
