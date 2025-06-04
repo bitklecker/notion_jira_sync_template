@@ -2,37 +2,41 @@ import os
 import requests
 import logging
 
+# Maps roles to known user field IDs (excluding Head of Brand Design Review)
+ROLE_FIELD_MAP = {
+    "designer": "cf[13403]",
+    "copywriter": "cf[13402]",
+    "brand_lead": "cf[13902]",
+    "project_lead": "cf[13400]",
+    "print_producer": "cf[15530]",
+    "social_media": "cf[14200]",
+    "illustration": "cf[14110]",
+    "assignee": "assignee",
+}
+
 def fetch_filtered_jira_issues():
     domain = os.getenv("JIRA_DOMAIN")
     email = os.getenv("JIRA_EMAIL")
     token = os.getenv("JIRA_API_TOKEN")
     display_name = os.getenv("JIRA_DISPLAY_NAME")
     jql = os.getenv("JIRA_JQL")
+    role = os.getenv("JIRA_ROLE", "").lower().strip()
 
     if not all([domain, email, token]):
         raise RuntimeError("Missing required JIRA secrets in environment")
 
-    if not jql and display_name:
-        # Only include USER fields
-        user_fields = [
-            "assignee",
-            "cf[13403]",  # Designer
-            "cf[13402]",  # Copywriter
-            "cf[13902]",  # Brand Lead
-            "cf[13400]",  # Project Lead
-            "cf[15530]",  # Print Producer
-            "cf[14200]",  # Social Media
-            "cf[14110]",  # Illustration
-            "cf[14610]",  # Head of Brand Design Review
-        ]
-        or_clause = " OR ".join(f'{field} = "{display_name}"' for field in user_fields)
+    if not jql and (not display_name or not role):
+        raise RuntimeError("Either JIRA_JQL must be provided, or both JIRA_DISPLAY_NAME and JIRA_ROLE must be set")
+
+    # Build fallback JQL if not provided
+    if not jql:
+        field = ROLE_FIELD_MAP.get(role)
+        if not field:
+            raise RuntimeError(f"Unsupported JIRA_ROLE: {role}")
         jql = (
-            f'project = CFM AND resolution = Unresolved AND created >= "2024-01-01" AND ({or_clause}) '
+            f'project = CFM AND status != Resolved AND created >= "2024-01-01" AND {field} = "{display_name}" '
             'ORDER BY updated DESC'
         )
-
-    elif not jql:
-        raise RuntimeError("Either JIRA_JQL must be provided, or JIRA_DISPLAY_NAME must be set")
 
     logging.info(f"🧠 JQL used: {jql}")
 
@@ -44,7 +48,7 @@ def fetch_filtered_jira_issues():
     auth = (email, token)
     params = {
         "jql": jql,
-        "maxResults": 100,
+        "maxResults": 1000,
         "fields": "*all",
     }
 
