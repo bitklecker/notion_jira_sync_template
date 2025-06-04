@@ -12,23 +12,27 @@ def fetch_filtered_jira_issues():
     if not all([domain, email, token]):
         raise RuntimeError("Missing required JIRA secrets in environment")
 
-    # Expanded fallback JQL if custom one is not provided
     if not jql and display_name:
+        # Only include USER fields
+        user_fields = [
+            "assignee",
+            "cf[13403]",  # Designer
+            "cf[13402]",  # Copywriter
+            "cf[13902]",  # Brand Lead
+            "cf[13400]",  # Project Lead
+            "cf[15530]",  # Print Producer
+            "cf[14200]",  # Social Media
+            "cf[14110]",  # Illustration
+            "cf[14610]",  # Head of Brand Design Review
+        ]
+        or_clause = " OR ".join(f'{field} = "{display_name}"' for field in user_fields)
         jql = (
-            f'project = CFM AND resolution = Unresolved AND created >= "2024-01-01" AND ('
-            f'assignee = "{display_name}" OR '
-            f'cf[13403] = "{display_name}" OR '   # Designer
-            f'cf[13402] = "{display_name}" OR '   # Copywriter
-            f'cf[13902] = "{display_name}" OR '   # Brand Lead
-            f'cf[13400] = "{display_name}" OR '   # Project Lead
-            f'cf[15530] = "{display_name}" OR '   # Print Producer
-            f'cf[14200] = "{display_name}" OR '   # Social Media
-            f'cf[14110] = "{display_name}" OR '   # Illustration
-            f'cf[14610] = "{display_name}"'       # Head of Brand Design Review
-            f') ORDER BY updated DESC'
+            f'project = CFM AND resolution = Unresolved AND created >= "2024-01-01" AND ({or_clause}) '
+            'ORDER BY updated DESC'
         )
+
     elif not jql:
-        raise RuntimeError("Neither JIRA_JQL nor JIRA_DISPLAY_NAME was provided")
+        raise RuntimeError("Either JIRA_JQL must be provided, or JIRA_DISPLAY_NAME must be set")
 
     logging.info(f"🧠 JQL used: {jql}")
 
@@ -40,7 +44,7 @@ def fetch_filtered_jira_issues():
     auth = (email, token)
     params = {
         "jql": jql,
-        "maxResults": 1000,
+        "maxResults": 100,
         "fields": "*all",
     }
 
@@ -58,10 +62,8 @@ def fetch_filtered_jira_issues():
 
         data = response.json()
         issues.extend(data.get("issues", []))
-
         if start_at + data.get("maxResults", 0) >= data.get("total", 0):
             break
         start_at += data["maxResults"]
 
-    logging.info(f"✅ Jira issues matched: {len(issues)}")
     return issues
