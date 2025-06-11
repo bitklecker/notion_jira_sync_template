@@ -40,6 +40,7 @@ FIELD_MAP = {
     "Social media due date": ("customfield_14201", "date"),
     "Print producer": ("customfield_15530", "select"),
     "Social media": ("customfield_14200", "select"),
+    "Production": ("customfield_14109", "select"),
 }
 
 def get_existing_ticket_ids():
