@@ -11,6 +11,7 @@ ROLE_FIELD_MAP = {
     "print_producer": "cf[15530]",
     "social_media": "cf[14200]",
     "illustration": "cf[14110]",
+    "production": "cf[14109]",
     "assignee": "assignee",
 }
 
